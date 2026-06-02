@@ -43,6 +43,21 @@ function Invoke-CodexText {
     }
 }
 
+function Test-CodexConfigText {
+    param([string]$ConfigText)
+
+    $problems = @()
+    $dictationLines = @($ConfigText -split "`r?`n" | Where-Object { $_ -match '^\s*dictationDictionary\s*=' })
+    foreach ($line in $dictationLines) {
+        $quoteCount = ([regex]::Matches($line, '"')).Count
+        if (($quoteCount % 2) -ne 0) {
+            $problems += 'dictationDictionary has an unbalanced double quote.'
+        }
+    }
+
+    return $problems
+}
+
 function Get-OpenAiBundledStatus {
     $package = Get-CodexDesktopPackage
     $packageMarketplace = Join-Path $package.InstallLocation 'app\resources\plugins\openai-bundled'
@@ -50,12 +65,27 @@ function Get-OpenAiBundledStatus {
     $temporaryMarketplace = Join-Path $env:USERPROFILE '.codex\.tmp\bundled-marketplaces\openai-bundled'
     $configPath = Join-Path $env:USERPROFILE '.codex\config.toml'
 
-    $marketplaceList = Invoke-CodexText -Arguments @('plugin', 'marketplace', 'list')
-    $pluginList = Invoke-CodexText -Arguments @('plugin', 'list')
     $configText = if (Test-Path -LiteralPath $configPath) {
         Get-Content -LiteralPath $configPath -Raw -Encoding utf8
     } else {
         ''
+    }
+    $configProblems = @(Test-CodexConfigText -ConfigText $configText)
+
+    $marketplaceList = ''
+    $marketplaceListError = ''
+    try {
+        $marketplaceList = Invoke-CodexText -Arguments @('plugin', 'marketplace', 'list')
+    } catch {
+        $marketplaceListError = $_.Exception.Message
+    }
+
+    $pluginList = ''
+    $pluginListError = ''
+    try {
+        $pluginList = Invoke-CodexText -Arguments @('plugin', 'list')
+    } catch {
+        $pluginListError = $_.Exception.Message
     }
 
     [PSCustomObject]@{
@@ -68,8 +98,11 @@ function Get-OpenAiBundledStatus {
         TemporaryManifestExists = Test-Path -LiteralPath (Join-Path $temporaryMarketplace '.agents\plugins\marketplace.json')
         TemporaryPlugins = (Get-PluginNames -MarketplaceRoot $temporaryMarketplace) -join ', '
         MarketplaceRegistered = $marketplaceList -match '(?m)^openai-bundled\s+'
+        MarketplaceListError = $marketplaceListError
         ComputerUseListed = $pluginList -match '(?m)^computer-use@openai-bundled\s+'
+        PluginListError = $pluginListError
         ComputerUseEnabledInConfig = $configText -match '(?ms)^\[plugins\."computer-use@openai-bundled"\]\s*\r?\nenabled\s*=\s*true\s*$'
+        ConfigProblems = $configProblems -join '; '
     }
 }
 
@@ -86,6 +119,10 @@ if (-not $statusBefore.PackageManifestExists) {
 
 if (-not $statusBefore.PackageContainsComputerUse) {
     throw "The installed Codex Desktop bundled marketplace does not contain computer-use: $($statusBefore.PackageMarketplaceRoot)"
+}
+
+if ($statusBefore.ConfigProblems) {
+    throw "Codex config has a problem that may break Desktop UI rendering: $($statusBefore.ConfigProblems)"
 }
 
 $configPath = Join-Path $env:USERPROFILE '.codex\config.toml'

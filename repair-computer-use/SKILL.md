@@ -15,6 +15,7 @@ Use this Windows recovery workflow after a Codex Desktop update breaks Computer 
 - Do not publish command output without checking for local paths.
 - Do not delete caches, edit secrets, or manually launch `codex-computer-use.exe`.
 - Prefer the formal CLI marketplace registration over copying staging folders.
+- If Codex Desktop shows a blank or white left sidebar after restart, inspect `%USERPROFILE%\.codex\config.toml` for malformed TOML first. In particular, keep `[desktop]` values like `dictationDictionary` syntactically valid before rerunning marketplace repair.
 
 ## Diagnosis
 
@@ -34,6 +35,8 @@ Treat these together as the known recurrence:
 
 The `%USERPROFILE%\.codex\.tmp\bundled-marketplaces\openai-bundled` staging area may be incomplete. Do not treat that alone as the durable repair target: a Desktop restart can recreate it.
 
+If the left sidebar turns blank or white after a repair attempt, treat it as a possible `config.toml` parse or rewrite problem before reinstalling Codex Desktop. Check the `[desktop]` block first, especially `dictationDictionary`, because malformed quotes there can leave Desktop UI settings in a bad state while the main chat still renders.
+
 ## Repair
 
 Explain:
@@ -50,6 +53,8 @@ powershell -ExecutionPolicy Bypass -File "<skill-root>\scripts\repair-computer-u
 ```
 
 Then ask the user to restart Codex Desktop.
+
+The repair script reports `ConfigProblems` during `Inspect` and refuses `Repair` when it detects a malformed `dictationDictionary` line. Fix the config or restore a known-good config backup before continuing marketplace repair.
 
 ## Verify
 
