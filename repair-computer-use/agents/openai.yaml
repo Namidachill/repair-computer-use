@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repair Computer Use"
+  short_description: "Repair Codex Desktop Computer Use on Windows"
+  default_prompt: "Use $repair-computer-use to diagnose and repair Codex Desktop Computer Use on Windows after an update."
